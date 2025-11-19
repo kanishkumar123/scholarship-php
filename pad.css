@@ -1,0 +1,44 @@
+    body { font-family: Arial, sans-serif; }
+    .tab {
+      display: inline-block;
+      padding: 10px 20px;
+      border: 1px solid #ccc;
+      cursor: pointer;
+      background: #f5f5f5;
+      border-bottom: none;
+    }
+    .tab.active {
+      background: #fff;
+      border-top: 3px solid #007bff;
+      font-weight: bold;
+    }
+    .tab-content {
+      border: 1px solid #ccc;
+      padding: 15px;
+      background: #fff;
+      width: 420px;
+    }
+    #signature-pad {
+      border: 2px solid #000;
+      border-radius: 5px;
+      width: 400px;
+      height: 200px;
+    }
+    input[type=text] {
+      width: 400px;
+      padding: 8px;
+      font-size: 18px;
+    }
+    .typed-preview {
+      font-family: 'Brush Script MT', cursive;
+      font-size: 28px;
+      color: #333;
+      border: 1px dashed #aaa;
+      width: 400px;
+      height: 80px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #fafafa;
+    }

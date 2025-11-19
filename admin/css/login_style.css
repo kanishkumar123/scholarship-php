@@ -1,0 +1,478 @@
+/*
+=================================================
+--- ⭐️ NEW "STATIC NEON" LOGIN STYLES ⭐️ ---
+=================================================
+*/
+
+/* --- Import Font --- */
+@import url("https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap");
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Poppins", sans-serif;
+  height: 100vh;
+  width: 100vw;
+  /* This centers the login box */
+  display: grid;
+  place-content: center;
+  overflow: hidden; /* Hide scrollbars */
+  background: #111827; /* Dark fallback */
+}
+
+/* ======================= */
+/* 1. Backgrounds */
+/* ======================= */
+#particle-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -5;
+  background: linear-gradient(
+    180deg,
+    rgba(17, 24, 39, 0.6) 0%,
+    rgba(17, 24, 39, 0.9) 100%
+  );
+}
+.bg-slideshow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  list-style: none;
+  z-index: -10;
+}
+.bg-slideshow li {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center center;
+  opacity: 0;
+  animation: image-fade 35s linear infinite;
+}
+/* --- ⭐️ CORRECTED IMAGE PATHS ⭐️ --- */
+.bg-slideshow li:nth-child(1) {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+    url("../../assets/scholar1.jpg");
+  animation-delay: 0s;
+}
+.bg-slideshow li:nth-child(2) {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+    url("../../assets/scholar2.jpg");
+  animation-delay: 7s;
+}
+.bg-slideshow li:nth-child(3) {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+    url("../../assets/scholar3.jpg");
+  animation-delay: 14s;
+}
+.bg-slideshow li:nth-child(4) {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+    url("../../assets/scholar4.jpg");
+  animation-delay: 21s;
+}
+.bg-slideshow li:nth-child(5) {
+  background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)),
+    url("../../assets/scholar5.jpg");
+  animation-delay: 28s;
+}
+/* --- ⭐️ CORRECTED ANIMATION TIMING ⭐️ --- */
+@keyframes image-fade {
+  0% {
+    opacity: 0;
+    transform: scale(1.05);
+  }
+  4% {
+    opacity: 1;
+  }
+  16% {
+    opacity: 1;
+  }
+  20% {
+    opacity: 0;
+    transform: scale(1.15);
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ======================= */
+/* 2. Neon Login Box */
+/* ======================= */
+.login-box {
+  width: 420px;
+  max-width: 90vw;
+  padding: 40px 35px;
+  position: relative;
+  overflow: hidden;
+  z-index: 2;
+
+  /* Glassmorphism */
+  background: rgba(17, 24, 39, 0.75);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+
+  /* Hover Expand */
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform-origin: center;
+}
+.login-box:hover {
+  transform: scale(1.03);
+}
+
+/* Neon Circling Border */
+.login-box::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 200%;
+  height: 200%;
+  z-index: -2;
+  background: conic-gradient(
+    transparent,
+    transparent,
+    transparent,
+    #0091ff,
+    #ff00fb,
+    #0091ff,
+    transparent
+  );
+  animation: neon-spin 4s linear infinite;
+}
+
+/* The "Hole" for the box */
+.login-box::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  background: #111827;
+  border-radius: 8px;
+  z-index: -1;
+}
+
+@keyframes neon-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* ======================= */
+/* 3. Form Content */
+/* ======================= */
+.university-title {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 20px;
+  pointer-events: none;
+}
+.university-title span {
+  display: inline-block;
+  background: linear-gradient(145deg, #0091ff, #ff00fb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(0, 145, 255, 0.3));
+  animation: float-text 1.5s ease-in-out infinite alternate;
+}
+.university-title span:nth-child(1) {
+  animation-delay: 0s;
+}
+.university-title span:nth-child(2) {
+  animation-delay: 0.1s;
+}
+.university-title span:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.university-title span:nth-child(4) {
+  animation-delay: 0.3s;
+}
+
+@keyframes float-text {
+  from {
+    transform: translateY(0px);
+  }
+  to {
+    transform: translateY(-3px);
+  }
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+}
+.login-form h2 {
+  color: #ffffff;
+  font-weight: 600;
+  text-align: center;
+  font-size: 1.8rem;
+  margin-bottom: 5px;
+}
+.login-form p {
+  color: #9ca3af; /* Gray text */
+  text-align: center;
+  font-size: 0.9rem;
+  margin-bottom: 30px;
+}
+
+/* Animated Form Group (Dark Theme) */
+.form-group {
+  width: 100%;
+  border-radius: 5px;
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0px 5px 10px rgba(0, 0, 0, 0.1);
+  margin-bottom: 25px;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 15px 20px;
+  border: none;
+  outline: none;
+  background: #111827;
+  border-radius: 5px;
+  color: #ffffff;
+  font-size: 14px;
+  font-family: "Poppins", sans-serif;
+  transition: 0.3s ease;
+  position: relative;
+  z-index: 2;
+  box-sizing: border-box;
+}
+.form-group input[type="date"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  color: #9d9d9d;
+}
+.form-group input[type="date"]:focus,
+.form-group input[type="date"]:valid {
+  color: #ffffff;
+}
+.form-group input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+.form-group input:-webkit-autofill,
+.form-group input:-webkit-autofill:hover,
+.form-group input:-webkit-autofill:focus,
+.form-group input:-webkit-autofill:active {
+  -webkit-text-fill-color: #ffffff !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 0 100px #111827 inset !important;
+  transition: background-color 5000s ease-in-out 0s;
+  font-family: "Poppins", sans-serif;
+  font-size: 14px;
+}
+.form-group label {
+  font-size: 14px;
+  background: #111827;
+  padding: 0 10px;
+  pointer-events: none;
+  position: absolute;
+  top: 50%;
+  left: 20px;
+  transform: translateY(-50%);
+  transition: 0.3s ease;
+  color: #9d9d9d;
+  z-index: 3;
+}
+.form-group input:focus ~ label,
+.form-group input:not(:placeholder-shown) ~ label,
+.form-group select:focus ~ label,
+.form-group select:valid ~ label,
+.form-group input[type="date"]:focus ~ label,
+.form-group input[type="date"]:valid ~ label {
+  top: 0;
+  transform: translateY(-50%) scale(0.9);
+  color: #0091ff;
+}
+.form-group .input-bg {
+  position: absolute;
+  inset: -2px;
+  z-index: -1;
+  border-radius: 5px;
+  transform: scaleX(0);
+  transition: 0.3s ease;
+}
+.form-group input:focus ~ .input-bg {
+  background: linear-gradient(to right, #0091ff, #ff00fb);
+  transform: scaleX(1);
+}
+
+/* Login Button */
+.login-btn {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 5px;
+  background: linear-gradient(to right, #0091ff, #ff00fb);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.login-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(0, 145, 255, 0.5);
+}
+.login-btn:active {
+  transform: scale(0.98);
+}
+
+/* Social Icons */
+.social-icons {
+  text-align: center;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+.social-icons a {
+  color: #9ca3af;
+  text-decoration: none;
+  font-size: 1rem;
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid #9ca3af;
+  transition: all 0.3s ease;
+}
+.social-icons a:hover {
+  color: #fff;
+  background: #0091ff;
+  border-color: #0091ff;
+  transform: scale(1.1) translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 145, 255, 0.4);
+}
+
+/* Form Footer Link */
+.form-footer {
+  text-align: center;
+  margin-top: 20px;
+}
+.form-footer a {
+  color: #9ca3af;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.form-footer a:hover {
+  color: #0091ff;
+}
+
+/* ======================= */
+/* 4. Error Messages & Modal */
+/* ======================= */
+.error-message {
+  text-align: center;
+  margin-bottom: 15px;
+  color: #f87171;
+  background-color: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  padding: 10px;
+  border-radius: 8px;
+}
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(10px);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+.modal-content {
+  background-color: #1f2937;
+  color: #f9fafb;
+  padding: 30px;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 350px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.modal-content h3 {
+  color: #f87171;
+  margin-top: 0;
+  margin-bottom: 15px;
+  font-size: 1.25rem;
+}
+.modal-content p {
+  margin-bottom: 20px;
+  font-size: 1rem;
+  color: #d1d5db;
+}
+.modal-close-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 500;
+  transition: background-color 0.3s;
+}
+.modal-close-btn:hover {
+  background-color: #0056b3;
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ======================= */
+/* 5. Responsive */
+/* ======================= */
+@media (max-width: 900px) {
+  /* On mobile, stack the split-screen */
+  .login-wrapper {
+    flex-direction: column;
+  }
+  .login-visual {
+    flex-basis: 250px;
+    flex-shrink: 0;
+  }
+  .login-form-container {
+    flex-grow: 1;
+    align-content: center;
+  }
+}

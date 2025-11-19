@@ -1,0 +1,22 @@
+# Ignore configuration files with credentials (e.g., local settings)
+.env
+config/database.local.php
+
+# Ignore vendor dependencies (if you use Composer)
+/vendor/
+
+# Ignore IDE-specific files (e.g., Visual Studio Code, PHPStorm)
+.vscode/
+.idea/
+
+# Ignore log, temporary, and cache files
+*.log
+*.tmp
+/cache/
+
+# Database Dumps (often ignored unless using migrations/versioning tools)
+*.sql
+
+# OS generated files
+.DS_Store
+Thumbs.db
