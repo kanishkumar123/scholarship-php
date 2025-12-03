@@ -239,6 +239,36 @@ $family_income_formatted = format_inr($app['family_income']);
             background: #c82333; /* Darker red on hover */
             box-shadow: 0 10px 25px rgba(220, 53, 69, 0.4);
         }
+
+        /* Signature Styling */
+.declaration-section {
+    margin-top: 20px;
+    border-top: 2px dashed #e0e0e0;
+    padding-top: 20px;
+}
+.declaration-text {
+    font-size: 0.9em;
+    color: #555;
+    margin-bottom: 15px;
+    font-style: italic;
+}
+.signature-box {
+    text-align: right; /* Aligns signature to the right */
+    margin-top: 10px;
+}
+.signature-img {
+    max-width: 200px;
+    max-height: 80px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+    display: inline-block;
+}
+.signature-label {
+    font-weight: bold;
+    font-size: 0.9em;
+    color: #333;
+    margin-top: 5px;
+}
         /* --- END OF NEW STYLES --- */
     </style>
 
@@ -356,7 +386,38 @@ $family_income_formatted = format_inr($app['family_income']);
                 <div class="grid-item"><div class="label">Submitted On</div><div class="value"><?= htmlspecialchars($app['submitted_at']) ?></div></div>
             </div>
         </div>
+        <div class="card-section declaration-section">
+            <h2><i class="fas fa-file-contract"></i> Declaration</h2>
+            <div class="declaration-text">
+                I hereby declare that the information provided above is true to the best of my knowledge. I understand that any discrepancy may lead to the cancellation of my application.
+            </div>
+            
+            <div class="grid">
+                <div class="grid-item full-width">
+                    <div class="signature-box">
+                        <?php 
+                        // Check if signature path exists and file is valid
+                        $sig_path = $app['signature_path']; // Ensure this matches your DB column name
+                        
+                        // Handle formatting if path starts with '../' (cleanup for display)
+                        if (strpos($sig_path, '../') === 0) {
+                            $sig_path = substr($sig_path, 3);
+                        }
+                        
+                        if (!empty($sig_path) && file_exists($sig_path)): ?>
+                            <img src="<?= htmlspecialchars($sig_path) ?>" alt="Applicant Signature" class="signature-img">
+                        <?php else: ?>
+                            <div style="height: 50px; border-bottom: 1px solid #000; width: 200px; display:inline-block;"></div>
+                        <?php endif; ?>
+                        <div class="signature-label">Signature of the Applicant</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
+
+    
                     
     <div class="center">
         <a class="download-btn" id="download-btn" href="generate_pdf.php?id=<?= $app['id'] ?>">

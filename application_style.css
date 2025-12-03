@@ -924,3 +924,27 @@ body {
   background: var(--electric-blue);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
+
+/* Add to application_style.css */
+.clear-btn {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  color: #dc3545; /* Red text */
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.clear-btn:hover {
+  background: #dc3545;
+  color: #fff;
+  border-color: #dc3545;
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.2);
+}

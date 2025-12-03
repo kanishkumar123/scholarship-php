@@ -135,8 +135,17 @@ if ($existingApp) {
                 <div class="form-group">
                     <select name="institution_name" id="institution_name" data-validate-type="select" data-error-message="Please select your institution." required>
                         <option value="">-- SELECT INSTITUTION --</option>
-                        <?php foreach ($college_programs as $college_id => $data): ?>
-                            <option value="<?= htmlspecialchars($college_id) ?>"><?= htmlspecialchars($data['name']) ?></option>
+                        <?php foreach ($college_programs as $college_id => $data): 
+                            // --- FIX: Compare stored Name with Dropdown Name ---
+                            $is_selected = '';
+                            if (isset($student['institution_name']) && 
+                                trim($student['institution_name']) === trim($data['name'])) {
+                                $is_selected = 'selected';
+                            }
+                        ?>
+                            <option value="<?= htmlspecialchars($college_id) ?>" <?= $is_selected ?>>
+                                <?= htmlspecialchars($data['name']) ?>
+                            </option>
                         <?php endforeach; ?>
                     </select>
                     <label for="institution_name">Institution Name:</label>
@@ -389,8 +398,12 @@ if ($existingApp) {
                 </div>
 
                 <div class="tab-content" id="tab-draw">
-                    <canvas id="signature-pad"></canvas><br>
-                    <button type="button" id="clear" class="nav-btn prev" style="visibility: visible; background: var(--text-muted-dark);">Clear</button>
+                    <div class="signature-pad-wrapper">
+                        <canvas id="signature-pad"></canvas>
+                    </div>
+                    <button type="button" id="clear" class="clear-btn">
+                        <i class="fas fa-eraser"></i> Clear Signature
+                    </button>
                 </div>
 
                 <div class="tab-content" id="tab-type" style="display:none;">
@@ -443,5 +456,27 @@ if ($existingApp) {
 <script src="application_scripts.js"></script> 
 
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.6/dist/signature_pad.umd.min.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    // 1. Check if Institution is pre-filled
+    const institutionSelect = document.getElementById("institution_name");
+    
+    if (institutionSelect && institutionSelect.value !== "") {
+        // Manually trigger the function to load courses
+        if (typeof updatePrograms === "function") {
+            updatePrograms();
+            
+            // 2. Force validation styling to show "Green" immediately
+            institutionSelect.classList.add("is-dirty");
+            // Small delay to ensure validation runs after UI updates
+            setTimeout(() => {
+                const event = new Event('change');
+                institutionSelect.dispatchEvent(event);
+            }, 100);
+        }
+    }
+});
+</script>
 </body>
 </html>

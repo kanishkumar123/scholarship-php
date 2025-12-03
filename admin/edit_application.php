@@ -1,664 +1,348 @@
 <?php
-// --- 1. ALL PHP LOGIC GOES FIRST ---
 session_start();
 include("../config.php"); 
 
-// --- 2. Security & Login Checks ---
-if (!isset($_SESSION['admin_id'])) {
-    header("Location: login.php");
-    exit;
-}
+if (!isset($_SESSION['admin_id'])) { header("Location: login.php"); exit; }
+if (!isset($_GET['id']) || !is_numeric($_GET['id'])) { die("Invalid Application ID"); }
+$app_id = intval($_GET['id']);
 
-// --- 3. Get Application ID ---
-if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
-    header("Location: dashboard.php");
-    exit;
-}
-$application_id = mysqli_real_escape_string($conn, $_GET['id']);
+// Fetch App Data
+$query = "SELECT a.*, ss.name AS student_name, ss.application_no, s.name AS scholarship_name, ay.year_range AS academic_year_name
+          FROM applications a
+          JOIN scholarship_students ss ON a.student_id = ss.id
+          JOIN scholarships s ON a.scholarship_id = s.id
+          LEFT JOIN academic_years ay ON ss.academic_year = ay.id
+          WHERE a.id = '$app_id' LIMIT 1";
+$result = mysqli_query($conn, $query);
+$app = mysqli_fetch_assoc($result);
+if (!$app) die("Application not found.");
 
-// --- 4. Fetch Main Application Data ---
-$app_query = "
-    SELECT a.*, ss.id AS ss_student_id, ss.scholarship_id AS ss_scholarship_id, ss.application_no, ss.name, ss.dob, ss.academic_year
-    FROM applications a
-    JOIN scholarship_students ss ON a.student_id = ss.id 
-    WHERE a.id = '$application_id'
-    LIMIT 1
-";
-$application = mysqli_fetch_assoc(mysqli_query($conn, $app_query));
-
-if (!$application) {
-    echo "<script>alert('Error: Application record not found.'); window.location.href='dashboard.php';</script>";
-    exit;
-}
-
-// Extract data for pre-filling
-$student_id = $application['ss_student_id'];
-$scholarship_id = $application['ss_scholarship_id'];
-$academic_year_id = $application['academic_year']; 
-
-// --- 5. Fetch Scholarship & Academic Year Names ---
-$info_query = "
-    SELECT s.name AS scholarship_name, ay.year_range AS academic_year_name
-    FROM scholarships s
-    LEFT JOIN academic_years ay ON '$academic_year_id' = ay.year_range 
-    WHERE s.id = '$scholarship_id'
-";
-$info_result = mysqli_fetch_assoc(mysqli_query($conn, $info_query));
-$scholarship_name = $info_result['scholarship_name'] ?? 'N/A';
-$academic_year_name = $info_result['academic_year_name'] ?? htmlspecialchars($academic_year_id);
-
-// --- 6. Fetch College-Program Mappings ---
-$mapping_query = mysqli_query($conn, "
-    SELECT c.id AS college_id, c.name AS college_name, p.id AS program_id, p.name AS program_name
-    FROM college_program_mapping m
-    JOIN colleges c ON m.college_id = c.id
-    JOIN programs p ON m.program_id = p.id
-    ORDER BY c.name ASC, p.name ASC
-");
+// Fetch College Mappings
+$mapping_query = mysqli_query($conn, "SELECT c.id AS college_id, c.name AS college_name, p.id AS program_id, p.name AS program_name FROM college_program_mapping m JOIN colleges c ON m.college_id = c.id JOIN programs p ON m.program_id = p.id ORDER BY c.name ASC, p.name ASC");
 $college_programs = [];
 while ($row = mysqli_fetch_assoc($mapping_query)) {
     $college_programs[$row['college_id']]['name'] = $row['college_name'];
-    $college_programs[$row['college_id']]['programs'][] = [
-        'id' => $row['program_id'],
-        'name' => $row['program_name']
-    ];
+    $college_programs[$row['college_id']]['programs'][] = ['id' => $row['program_id'], 'name' => $row['program_name']];
 }
 
-// --- 7. Fetch Uploaded Files ---
-$files_query = mysqli_query($conn, "SELECT file_type, file_path FROM application_files WHERE application_id = '$application_id'");
-$files = [];
-while ($file_row = mysqli_fetch_assoc($files_query)) {
-    $files[$file_row['file_type']] = $file_row['file_path'];
+// --- FETCH UPLOADED FILES ---
+$files_query = mysqli_query($conn, "SELECT file_type, file_path FROM application_files WHERE application_id = '$app_id'");
+$uploaded_files = [];
+while($row = mysqli_fetch_assoc($files_query)) {
+    // Store path exactly as in DB (e.g. "uploads/file.pdf")
+    $uploaded_files[$row['file_type']] = $row['file_path'];
 }
 
-// --- 8. Helper functions ---
-function get_value($field, $data) {
-    return htmlspecialchars($data[$field] ?? '');
-}
-function check_select($field, $data, $value) {
-    return (isset($data[$field]) && $data[$field] == $value) ? 'selected' : '';
-}
-function check_radio($field, $data, $value) {
-    return (isset($data[$field]) && $data[$field] == $value) ? 'checked' : '';
-}
-$sports_levels_applied = isset($application['sports_level']) ? explode(',', $application['sports_level']) : [];
+// Helper Functions
+function val($k, $d) { return htmlspecialchars($d[$k] ?? ''); }
+function sel($k, $d, $v) { return (isset($d[$k]) && $d[$k] == $v) ? 'selected' : ''; }
+function chk($k, $d, $v) { if (!isset($d[$k])) return ''; $values = explode(',', $d[$k]); return in_array($v, $values) ? 'checked' : ''; }
+function showIf($k, $d, $v) { return (isset($d[$k]) && $d[$k] == $v) ? 'block' : 'none'; }
 
-// --- 9. Set Page Variables ---
-$currentPage = 'applications';
-$pageTitle = "Edit Application";
-$pageSubtitle = "Editing #" . htmlspecialchars($application['application_no']);
-
-// --- 10. Include Header (HTML starts here) ---
-include('header.php'); 
+// Helper to make DB path viewable from Admin folder (prepend ../)
+function adminLink($path) {
+    if(empty($path)) return '';
+    // If it doesn't start with ../, add it
+    return (strpos($path, '../') === false) ? '../' . $path : $path;
+}
 ?>
-
-<div class="container" style="max-width: 1000px; margin: 0 auto;">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Edit Application #<?= val('application_no', $app) ?></title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+<link rel="stylesheet" href="../application_style.css">
+<link rel="stylesheet" href="../pad.css">
+<style>
+    .card-header { background: linear-gradient(135deg, #2c3e50, #4ca1af); } 
+    .current-signature-preview { border: 1px dashed #ccc; padding: 10px; text-align: center; margin-bottom: 15px; background: #f9f9f9; border-radius: 8px; }
+    .current-signature-preview img { max-height: 80px; max-width: 100%; }
+    .signature-pad-wrapper { width: 100%; height: 200px; border: 1px solid #ccc; background-color: #fff; margin-bottom: 10px; border-radius: 8px;}
+    canvas#signature-pad { width: 100%; height: 100%; display: block; touch-action: none; }
+    .tab { display: inline-block; padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab.active { border-bottom: 2px solid #007bff; font-weight: bold; color: #007bff; }
     
-    <?php
-    // Display success/error messages
-    if (isset($_SESSION['message'])) {
-        echo '<div class="alert alert-' . htmlspecialchars($_SESSION['message']['type']) . '">' . htmlspecialchars($_SESSION['message']['text']) . '</div>';
-        unset($_SESSION['message']);
-    }
-    ?>
+    /* CRITICAL: Ensure file link is present in DOM but hidden, so JS can find it */
+    .file-link { display: none !important; }
+    .form-group { margin-bottom: 25px; }
+</style>
+</head>
+<body> 
 
-    <div class="card box"> 
+<div class="container">
+    <div style="margin-bottom: 20px;">
+        <a href="view_applications.php" class="nav-btn prev" style="text-decoration:none; background: #6c757d; width:auto; display:inline-block;"><i class="fas fa-arrow-left"></i> Back to List</a>
+    </div>
+    
+    <?php if (isset($_SESSION['message'])): ?>
+        <div style="padding: 15px; margin-bottom: 20px; border-radius: 5px; color: white; background-color: <?= $_SESSION['message']['type'] == 'success' ? '#28a745' : '#dc3545' ?>;">
+            <?= $_SESSION['message']['text'] ?>
+        </div>
+        <?php unset($_SESSION['message']); ?>
+    <?php endif; ?>
+
+    <h2 class="card-header"><span class="l">E</span><span class="l">D</span><span class="l">I</span><span class="l">T</span> <span class="l">A</span><span class="l">P</span><span class="l">P</span></h2>
+    
+    <div class="card">
         <div class="info-bar">
-            <p><b>Scholarship:</b> <?= htmlspecialchars($scholarship_name) ?></p>
-            <p><b>Applicant:</b> <?= htmlspecialchars($application['name']) ?></p>
-            <p><b>App No:</b> <?= htmlspecialchars($application['application_no']) ?></p>
-            <p><b>DOB:</b> <?= !empty($application['dob']) ? date("d-m-Y", strtotime($application['dob'])) : '' ?></p>
-            <p><b>Academic Year:</b> <?= htmlspecialchars($academic_year_name) ?></p>
-        </div>
-
-        <div class="progress-bar">
-            <div class="progress-bar-fill" id="formProgressBar"></div>
-        </div>
-
-        <div class="error-message" id="validationAlert" style="display: none;">
-            Please correct the highlighted fields before proceeding.
+            <div class="info-item full-width-name"><div class="label">Student:</div><div class="value"><?= val('student_name', $app) ?></div></div>
+            <div class="info-item"><div class="label">App No:</div><div class="value"><?= val('application_no', $app) ?></div></div>
+            <div class="info-item"><div class="label">Scholarship:</div><div class="value"><?= val('scholarship_name', $app) ?></div></div>
         </div>
 
         <div class="top-nav">
-            <button type="button" class="nav-tab active" data-page="1">Personal & Academic</button>
-            <button type="button" class="nav-tab" data-page="2">Educational Qualification</button>
-            <button type="button" class="nav-tab" data-page="3">Special Claims & Other</button>
+            <button type="button" class="nav-tab active" data-page="1">1. Personal</button>
+            <button type="button" class="nav-tab" data-page="2">2. Education</button>
+            <button type="button" class="nav-tab" data-page="3">3. Claims & Sig</button>
         </div>
 
-        <form action="update_application.php" method="post" enctype="multipart/form-data" onsubmit="return validatePage(3)">
-            <input type="hidden" name="application_id" value="<?= htmlspecialchars($application_id) ?>">
-            <input type="hidden" name="student_id" value="<?= htmlspecialchars($student_id) ?>">
-            <input type="hidden" name="scholarship_id" value="<?= htmlspecialchars($scholarship_id) ?>">
-            <input type="hidden" name="academic_year" value="<?= htmlspecialchars($academic_year_id) ?>">
+        <form action="update_application.php" method="post" enctype="multipart/form-data" id="main-application-form">
+            <input type="hidden" name="app_id" value="<?= $app_id ?>">
+            <input type="hidden" name="signature_type" id="signature_type" value="draw">
+            <input type="hidden" name="signature_data" id="signature_data">
+            <input type="hidden" name="signature_updated" id="signature_updated" value="0"> 
 
             <div id="page1" class="page active">
-                <h3 class="page-header">Personal & Academic Details</h3>
-
-                <div class="filter-group">
-                    <label for="institution_name">Institution Name:</label>
-                    <select name="institution_name" id="institution_name">
-                        <option value="">-- SELECT INSTITUTION --</option>
-                        <?php foreach ($college_programs as $college_id_key => $data): ?>
-                            <option value="<?= $college_id_key ?>" <?= check_select('institution_name', $application, $college_id_key) ?>>
-                                <?= htmlspecialchars($data['name']) ?>
-                            </option>
+                <h3 class="page-header">Personal Details</h3>
+                <div class="form-group">
+                    <select name="institution_name" id="institution_name" required>
+                        <option value="">-- Select --</option>
+                        <?php foreach ($college_programs as $col_id => $data): ?>
+                            <option value="<?= $col_id ?>" <?= sel('institution_name', $app, $col_id) ?>><?= $data['name'] ?></option>
                         <?php endforeach; ?>
                     </select>
+                    <label>Institution Name:</label><div class="input-bg"></div>
                 </div>
-
-                <div class="filter-group">
-                    <label for="course">Course / Programme of Study:</label>
-                    <select name="course" id="course">
-                        <option value="">-- SELECT COURSE --</option>
-                        <?php
-                        $selected_college_id = get_value('institution_name', $application);
-                        $selected_course_id = get_value('course', $application);
-                        if ($selected_college_id && isset($college_programs[$selected_college_id])) {
-                            foreach ($college_programs[$selected_college_id]['programs'] as $program) {
-                                $selected = ($program['id'] == $selected_course_id) ? 'selected' : '';
-                                echo "<option value='{$program['id']}' $selected>".htmlspecialchars($program['name'])."</option>";
-                            }
-                        }
-                        ?>
-                    </select>
+                <div class="form-group">
+                    <select name="course" id="course" required><option value="">-- Select --</option></select>
+                    <label>Course:</label><div class="input-bg"></div>
                 </div>
-
-                <div class="form-group-inline">
-                    <div class="filter-group">
-                        <label for="year_of_study">Year of Study:</label>
-                        <select name="year_of_study" id="year_of_study">
-                            <option value="">-- Select Year --</option>
-                            <?php for ($y=1; $y<=5; $y++): ?>
-                                <option value="<?= $y ?>" <?= check_select('year_of_study', $application, $y) ?>><?= $y ?></option>
-                            <?php endfor; ?>
+                 <div class="form-group-inline">
+                    <div class="form-group">
+                        <select name="year_of_study" id="year_of_study" required>
+                            <option value="">-- Select --</option>
+                            <?php foreach ([1=>'I', 2=>'II', 3=>'III', 4=>'IV', 5=>'V'] as $num => $roman): ?>
+                                <option value="<?= $num ?>" <?= sel('year_of_study', $app, $num) ?>><?= $roman ?></option>
+                            <?php endforeach; ?>
                         </select>
+                        <label>Year:</label><div class="input-bg"></div>
                     </div>
-                    <div class="filter-group">
-                        <label for="semester">Semester:</label>
-                        <select name="semester" id="semester">
-                            <option value="">-- Select Semester --</option>
-                            <?php
-                            $current_semester = get_value('semester', $application);
-                            if ($current_semester): ?>
-                                <option value="<?= $current_semester ?>" selected><?= $current_semester ?></option>
-                            <?php endif; ?>
-                        </select>
+                    <div class="form-group">
+                        <select name="semester" id="semester"></select>
+                        <label>Semester:</label><div class="input-bg"></div>
                     </div>
                 </div>
-
-                <?php
-                $fields_page1 = [
-                    ['father_name','Father\'s Name'],
-                    ['mother_name','Mother\'s Name'],
-                    ['gender','Gender',['Male','Female','Other']],
-                    ['community','Community',['OC','BC','OBC','MBC','DNC','SC','ST']],
-                    ['caste','Caste'],
-                    ['family_income','Annual Family Income (₹)'],
-                    ['address','Permanent Address', 'textarea'],
-                    ['phone_std','Phone No. with STD code'],
-                    ['mobile','Mobile Number'],
-                    ['email','Email ID']
-                ];
-                
-                foreach ($fields_page1 as $f):
-                    $type = $f[2] ?? 'text';
-                    $field_name = $f[0];
-                    $field_value = get_value($field_name, $application);
-                    echo '<div class="filter-group">'; // Use filter-group for consistent styling
-                    echo "<label for='$field_name'>".$f[1].":</label>";
-                    if ($type==='textarea') {
-                        echo "<textarea name='$field_name' id='$field_name' rows='3'>$field_value</textarea>";
-                    } elseif (is_array($type)) {
-                        echo "<select name='$field_name' id='$field_name'>";
-                        echo "<option value=''>-- Select --</option>";
-                        foreach($type as $opt) {
-                            $selected = check_select($field_name, $application, $opt);
-                            echo "<option value='$opt' $selected>$opt</option>";
-                        }
-                        echo "</select>";
-                    } else {
-                        echo "<input type='text' name='$field_name' id='$field_name' value='$field_value'>";
-                    }
-                    echo '</div>';
-                endforeach;
+                <?php 
+                $fields = [['gender','Gender',['Male','Female','Other']], ['father_name','Father\'s Name'], ['mother_name','Mother\'s Name'], ['community','Community',['OC','BC','OBC','MBC','DNC','SC','ST']], ['caste','Caste'], ['family_income','Annual Family Income (₹)'], ['address','Permanent Address', 'textarea'], ['mobile','Mobile'], ['email','Email']];
+                foreach ($fields as $f) {
+                     $name=$f[0]; $label=$f[1]; $type=$f[2]??'text'; $val=val($name, $app);
+                     echo '<div class="form-group">';
+                     if($type==='textarea') echo "<textarea name='$name' id='$name'>$val</textarea>";
+                     elseif(is_array($type)) {
+                         echo "<select name='$name' id='$name'><option value=''>Select</option>";
+                         foreach($type as $opt) echo "<option value='$opt' ".(($val==$opt)?'selected':'').">$opt</option>";
+                         echo "</select>";
+                     } else echo "<input type='text' name='$name' id='$name' value='$val'>";
+                     echo "<label>$label</label><div class='input-bg'></div></div>";
+                }
                 ?>
             </div>
-
+            
             <div id="page2" class="page">
-                <h3 class="page-header">Educational Qualification</h3>
-
-                <div class="form-section">
+                <h3 class="page-header">Education</h3>
+                 <div class="form-section">
                     <h4>Previous Examination Details</h4>
                     <table class="styled-table">
-                        <thead>
-                        <tr>
-                            <th>Examination</th>
-                            <th>Year of Passing & Reg. No.</th>
-                            <th>Board / University</th>
-                            <th>Class / Grade</th>
-                            <th>Marks (%)</th>
-                        </tr>
-                        </thead>
+                        <thead><tr><th>Exam</th><th>Year/Reg</th><th>Board</th><th>Class</th><th>Marks</th></tr></thead>
                         <tbody>
                         <?php for($i=1;$i<=2;$i++): ?>
                         <tr>
-                            <td><input type="text" name="exam_name_<?= $i ?>" value="<?= get_value("exam_name_$i", $application) ?>"></td>
-                            <td><input type="text" name="exam_year_reg_<?= $i ?>" value="<?= get_value("exam_year_reg_$i", $application) ?>"></td>
-                            <td><input type="text" name="exam_board_<?= $i ?>" value="<?= get_value("exam_board_$i", $application) ?>"></td>
-                            <td><input type="text" name="exam_class_<?= $i ?>" value="<?= get_value("exam_class_$i", $application) ?>"></td>
-                            <td><input type="text" name="exam_marks_<?= $i ?>" value="<?= get_value("exam_marks_$i", $application) ?>"></td>
+                            <td data-label="Exam"><input type="text" name="exam_name_<?= $i ?>" value="<?= val("exam_name_$i", $app) ?>"></td>
+                            <td data-label="Year"><input type="text" name="exam_year_reg_<?= $i ?>" value="<?= val("exam_year_reg_$i", $app) ?>"></td>
+                            <td data-label="Board"><input type="text" name="exam_board_<?= $i ?>" value="<?= val("exam_board_$i", $app) ?>"></td>
+                            <td data-label="Class"><input type="text" name="exam_class_<?= $i ?>" value="<?= val("exam_class_$i", $app) ?>"></td>
+                            <td data-label="Marks"><input type="text" name="exam_marks_<?= $i ?>" value="<?= val("exam_marks_$i", $app) ?>"></td>
                         </tr>
                         <?php endfor; ?>
                         </tbody>
                     </table>
                 </div>
-
                 <div class="form-section">
-                    <h4>Lateral Entry Students</h4>
-                    <div class="form-group">
-                        <label for="lateral_exam_name">Exam Passed (Degree/Diploma):</label>
-                        <input type="text" name="lateral_exam_name" id="lateral_exam_name" value="<?= get_value('lateral_exam_name', $application) ?>">
-                    </div>
-                    <div class="form-group">
-                        <label for="lateral_exam_year_reg">Month & Year of Passing with Reg. No.:</label>
-                        <input type="text" name="lateral_exam_year_reg" id="lateral_exam_year_reg" value="<?= get_value('lateral_exam_year_reg', $application) ?>">
-                    </div>
-                    <div class="form-group">
-                        <label for="lateral_percentage">Percentage Obtained:</label>
-                        <input type="text" name="lateral_percentage" id="lateral_percentage" value="<?= get_value('lateral_percentage', $application) ?>">
-                    </div>
+                    <h4>Lateral Entry</h4>
+                    <div class="form-group"><input type="text" name="lateral_exam_name" value="<?= val('lateral_exam_name', $app) ?>" placeholder=" "><label>Exam Passed</label><div class="input-bg"></div></div>
+                    <div class="form-group"><input type="text" name="lateral_exam_year_reg" value="<?= val('lateral_exam_year_reg', $app) ?>" placeholder=" "><label>Reg No</label><div class="input-bg"></div></div>
+                    <div class="form-group"><input type="text" name="lateral_percentage" value="<?= val('lateral_percentage', $app) ?>" placeholder=" "><label>Percentage</label><div class="input-bg"></div></div>
                 </div>
             </div>
 
             <div id="page3" class="page">
-                <h3 class="page-header">Special Claims & Uploads</h3>
+                <h3 class="page-header">Claims & Signature</h3>
 
                 <div class="form-section">
-                    <h4>Sports (attach proof)</h4>
-                    <div class="checkbox-group" id="sports_checkbox_group">
-                        <label><input type="checkbox" name="sports_level[]" value="District" <?= in_array('District', $sports_levels_applied) ? 'checked' : '' ?>> District</label>
-                        <label><input type="checkbox" name="sports_level[]" value="State" <?= in_array('State', $sports_levels_applied) ? 'checked' : '' ?>> State</label>
-                        <label><input type="checkbox" name="sports_level[]" value="National" <?= in_array('National', $sports_levels_applied) ? 'checked' : '' ?>> National</label>
-                        <label><input type="checkbox" name="sports_level[]" value="International" <?= in_array('International', $sports_levels_applied) ? 'checked' : '' ?>> International</label>
+                    <h4>Sports</h4>
+                    <div class="checkbox-group">
+                        <label><input type="checkbox" name="sports_level[]" value="District" <?= chk('sports_level', $app, 'District') ?>> District</label>
+                        <label><input type="checkbox" name="sports_level[]" value="State" <?= chk('sports_level', $app, 'State') ?>> State</label>
                     </div>
-                    <div id="sports_section" class="conditional-section" style="display:none;">
-                        <div class="upload-area">
-                            <i class="fa-solid fa-cloud-arrow-up icon"></i>
-                            <strong>Click to upload or drag & drop files</strong>
-                            <div class="instructions">(PDF, JPEG, PNG)</div>
-                            <input type="file" name="sports_proof" accept=".pdf,.jpg,.jpeg,.png">
-                            
-                            <?php if (!empty($files['sports'])): ?>
-                                <a href="../<?= htmlspecialchars($files['sports']) ?>" target="_blank" class="file-link" style="display: none;">Sports Proof (Current)</a>
-                            <?php endif; ?>
-                        </div>
+                    <div class="upload-area">
+                        <span class="icon"><i class="fas fa-upload"></i></span>
+                        <strong>Upload Proof</strong>
+                        <input type="file" name="sports_proof" accept=".pdf,.jpg,.jpeg,.png">
+                        
+                        <?php if (!empty($uploaded_files['sports'])): ?>
+                            <a href="<?= adminPath($uploaded_files['sports']) ?>" class="file-link"><?= basename($uploaded_files['sports']) ?></a>
+                        <?php endif; ?>
                     </div>
                 </div>
+
                 <div class="form-section">
-                    <h4>Ex-Servicemen (attach proof)</h4>
+                    <h4>Ex-Servicemen</h4>
                     <div class="radio-group">
-                        <label><input type="radio" name="ex_servicemen" value="Yes" onclick="toggleSection('ex_servicemen_section', true)" <?= check_radio('ex_servicemen', $application, 'Yes') ?>> Yes</label>
-                        <label><input type="radio" name="ex_servicemen" value="No" onclick="toggleSection('ex_servicemen_section', false)" <?= check_radio('ex_servicemen', $application, 'No') ?>> No</label>
+                        <label><input type="radio" name="ex_servicemen" value="Yes" <?= chk('ex_servicemen', $app, 'Yes') ?> onclick="toggleSection('ex_servicemen', 'ex_sec')"> Yes</label>
+                        <label><input type="radio" name="ex_servicemen" value="No" <?= chk('ex_servicemen', $app, 'No') ?> onclick="toggleSection('ex_servicemen', 'ex_sec')"> No</label>
                     </div>
-                    <div id="ex_servicemen_section" class="conditional-section" style="display:<?= check_radio('ex_servicemen', $application, 'Yes') ? 'block' : 'none' ?>;">
+                    <div id="ex_sec" class="conditional-section" style="display:<?= showIf('ex_servicemen', $app, 'Yes') ?>;">
                         <div class="upload-area">
-                            <i class="fa-solid fa-cloud-arrow-up icon"></i>
-                            <strong>Click to upload or drag & drop files</strong>
-                            <div class="instructions">(PDF, JPEG, PNG)</div>
-                            <input type="file" name="ex_servicemen_proof" accept=".pdf,.jpg,.jpeg,.png">
-                            
-                            <?php if (!empty($files['ex_servicemen'])): ?>
-                                <a href="../<?= htmlspecialchars($files['ex_servicemen']) ?>" target="_blank" class="file-link" style="display: none;">Ex-Servicemen Proof (Current)</a>
+                             <span class="icon"><i class="fas fa-file-upload"></i></span>
+                             <strong>Upload Proof</strong>
+                             <input type="file" name="ex_servicemen_proof">
+                             <?php if (!empty($uploaded_files['ex_servicemen'])): ?>
+                                <a href="<?= adminPath($uploaded_files['ex_servicemen']) ?>" class="file-link"><?= basename($uploaded_files['ex_servicemen']) ?></a>
                             <?php endif; ?>
                         </div>
                     </div>
                 </div>
 
                 <div class="form-section">
-                    <h4>Disabled Person (attach proof)</h4>
+                    <h4>Disabled Status</h4>
                     <div class="radio-group">
-                        <label><input type="radio" name="disabled" value="Yes" onclick="toggleSection('disabled_section', true)" <?= check_radio('disabled', $application, 'Yes') ?>> Yes</label>
-                        <label><input type="radio" name="disabled" value="No" onclick="toggleSection('disabled_section', false)" <?= check_radio('disabled', $application, 'No') ?>> No</label>
+                        <label><input type="radio" name="disabled" value="Yes" <?= chk('disabled', $app, 'Yes') ?> onclick="toggleSection('disabled', 'dis_sec')"> Yes</label>
+                        <label><input type="radio" name="disabled" value="No" <?= chk('disabled', $app, 'No') ?> onclick="toggleSection('disabled', 'dis_sec')"> No</label>
                     </div>
-                    <div id="disabled_section" class="conditional-section" style="display:<?= check_radio('disabled', $application, 'Yes') ? 'block' : 'none' ?>;">
+                    <div id="dis_sec" class="conditional-section" style="display:<?= showIf('disabled', $app, 'Yes') ?>;">
                         <div class="form-group">
-                            <label for="disability_category">Category:</label>
-                            <input type="text" name="disability_category" id="disability_category" value="<?= get_value('disability_category', $application) ?>">
+                            <input type="text" name="disability_category" value="<?= val('disability_category', $app) ?>">
+                            <label>Category</label><div class="input-bg"></div>
                         </div>
                         <div class="upload-area">
-                            <i class="fa-solid fa-cloud-arrow-up icon"></i>
-                            <strong>Click to upload or drag & drop files</strong>
-                            <div class="instructions">(PDF, JPEG, PNG)</div>
-                            <input type="file" name="disability_proof" accept=".pdf,.jpg,.jpeg,.png">
-                            
-                            <?php if (!empty($files['disabled'])): ?>
-                                <a href="../<?= htmlspecialchars($files['disabled']) ?>" target="_blank" class="file-link" style="display: none;">Disability Proof (Current)</a>
+                            <span class="icon"><i class="fas fa-wheelchair"></i></span>
+                            <strong>Upload Proof</strong>
+                            <input type="file" name="disability_proof">
+                             <?php if (!empty($uploaded_files['disabled'])): ?>
+                                <a href="<?= adminPath($uploaded_files['disabled']) ?>" class="file-link"><?= basename($uploaded_files['disabled']) ?></a>
                             <?php endif; ?>
                         </div>
                     </div>
                 </div>
 
                 <div class="form-section">
-                    <h4>Parent working in VMRF-DU?</h4>
+                    <h4>Parent in VMRF</h4>
                     <div class="radio-group">
-                        <label><input type="radio" name="parent_vmrf" value="Yes" onclick="toggleSection('parent_vmrf_section', true)" <?= check_radio('parent_vmrf', $application, 'Yes') ?>> Yes</label>
-                        <label><input type="radio" name="parent_vmrf" value="No" onclick="toggleSection('parent_vmrf_section', false)" <?= check_radio('parent_vmrf', $application, 'No') ?>> No</label>
+                        <label><input type="radio" name="parent_vmrf" value="Yes" <?= chk('parent_vmrf', $app, 'Yes') ?> onclick="toggleSection('parent_vmrf', 'vmrf_sec')"> Yes</label>
+                        <label><input type="radio" name="parent_vmrf" value="No" <?= chk('parent_vmrf', $app, 'No') ?> onclick="toggleSection('parent_vmrf', 'vmrf_sec')"> No</label>
                     </div>
-                    <div id="parent_vmrf_section" class="conditional-section" style="display:<?= check_radio('parent_vmrf', $application, 'Yes') ? 'block' : 'none' ?>;">
+                    <div id="vmrf_sec" class="conditional-section" style="display:<?= showIf('parent_vmrf', $app, 'Yes') ?>;">
                         <div class="form-group">
-                            <label for="parent_vmrf_details">Furnish details:</label>
-                            <input type="text" name="parent_vmrf_details" id="parent_vmrf_details" value="<?= get_value('parent_vmrf_details', $application) ?>">
+                            <input type="text" name="parent_vmrf_details" value="<?= val('parent_vmrf_details', $app) ?>">
+                            <label>Details</label><div class="input-bg"></div>
                         </div>
                         <div class="upload-area">
-                            <i class="fa-solid fa-cloud-arrow-up icon"></i>
-                            <strong>Click to upload or drag & drop files</strong>
-                            <div class="instructions">(PDF, JPEG, PNG)</div>
-                            <input type="file" name="parent_vmrf_proof" accept=".pdf,.jpg,.jpeg,.png">
-                            
-                            <?php if (!empty($files['parent_vmrf'])): ?>
-                                <a href="../<?= htmlspecialchars($files['parent_vmrf']) ?>" target="_blank" class="file-link" style="display: none;">Parent VMRF Proof (Current)</a>
+                            <span class="icon"><i class="fas fa-id-card"></i></span>
+                            <strong>Upload Proof</strong>
+                            <input type="file" name="parent_vmrf_proof">
+                            <?php if (!empty($uploaded_files['parent_vmrf'])): ?>
+                                <a href="<?= adminPath($uploaded_files['parent_vmrf']) ?>" class="file-link"><?= basename($uploaded_files['parent_vmrf']) ?></a>
                             <?php endif; ?>
                         </div>
                     </div>
                 </div>
-            </div>
 
+                <h2 style="margin-top: 30px;">Signature</h2>
+                <?php if (!empty($app['signature_path'])): ?>
+                    <div class="current-signature-preview">
+                        <p style="font-size:0.8em; margin-bottom:5px;">Current Signature:</p>
+                        <img src="<?= adminPath($app['signature_path']) ?>" alt="Signature">
+                    </div>
+                <?php endif; ?>
+                
+                <div>
+                    <div class="tab active" data-target="draw">Draw New</div>
+                    <div class="tab" data-target="type">Type New</div>
+                    <div class="tab" data-target="upload">Upload New</div>
+                </div>
+                <div class="tab-content" id="tab-draw">
+                    <div class="signature-pad-wrapper"><canvas id="signature-pad"></canvas></div>
+                    <button type="button" id="clear" class="nav-btn prev">Clear</button>
+                </div>
+                <div class="tab-content" id="tab-type" style="display:none;">
+                    <div class="form-group"><input type="text" id="typed-signature" placeholder=" "><label>Type Name</label><div class="input-bg"></div></div>
+                </div>
+                <div class="tab-content" id="tab-upload" style="display:none;">
+                     <div class="upload-area"><input type="file" name="signature_file" id="signature_file"></div>
+                </div>
+            </div> 
+            
             <div class="navigation-buttons">
-                <button type="button" id="prevBtn" class="nav-btn prev" onclick="navigate(-1)">Previous</button>
-                <button type="button" id="nextBtn" class="nav-btn next" onclick="navigate(1)">Next</button>
-                <button type="submit" id="submitBtn" class="nav-btn submit">Save & Update Application</button>
+                <button type="button" class="nav-btn prev" id="prevBtn" onclick="prevPage()" style="display:none;">Prev</button>
+                <button type="button" class="nav-btn next" id="nextBtn" onclick="nextPage()">Next</button>
+                <button type="submit" class="nav-btn submit" id="submitBtn" style="display:none;">Update</button>
             </div>
-        </form>
+        </form> 
     </div>
 </div>
-<?php 
-// This includes the footer, </html>, </body>, and global js
-include('footer.php'); 
-?>
 
-
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.6/dist/signature_pad.umd.min.js"></script>
+<script src="../application_scripts.js"></script> 
 <script>
-// --- Global variables ---
-const collegePrograms = <?= json_encode($college_programs) ?>;
-const preSelectedCollegeId = '<?= get_value('institution_name', $application) ?>';
-const preSelectedCourseId = '<?= get_value('course', $application) ?>';
-let currentPage = 1;
-const totalPages = 3;
+    const collegePrograms = <?= json_encode($college_programs) ?>;
+    const preSelectedCollege = "<?= val('institution_name', $app) ?>";
+    const preSelectedCourse = "<?= val('course', $app) ?>";
+    const preSelectedSemester = "<?= val('semester', $app) ?>";
 
-// --- Global Functions (FIX: Moved to global scope so onclick can find them) ---
-let progressBarFill; // Will be defined after DOM loads
+    document.addEventListener("DOMContentLoaded", () => {
+        // 1. Mark fields dirty so floating labels float
+        document.querySelectorAll('.form-group input, .form-group select, .form-group textarea').forEach(input => {
+            if(input.value.trim() !== "") {
+                input.classList.add('is-dirty');
+                const wrapper = input.closest('.form-group');
+                if(wrapper) wrapper.classList.add('validated');
+            }
+        });
 
-function updateProgressBar() {
-    if (!progressBarFill) return; // Don't run if element not found
-    const progressValue = (currentPage - 1) / (totalPages - 1); 
-    const width = progressValue * 100;
-    progressBarFill.style.width = width + '%';
-}
+        // 2. Trigger Dropdown updates
+        if(typeof updatePrograms === 'function' && preSelectedCollege) {
+            const instSelect = document.getElementById('institution_name');
+            for(let i=0; i<instSelect.options.length; i++) {
+                 if(instSelect.options[i].value == preSelectedCollege) {
+                     instSelect.selectedIndex = i;
+                     break;
+                 }
+            }
+            updatePrograms(); 
+        }
+        if(typeof updateSemesters === 'function' && document.getElementById('year_of_study').value) {
+            updateSemesters();
+        }
 
-function showPage(pageNumber) {
-    currentPage = pageNumber;
-    
-    document.querySelectorAll('.page').forEach(page => {
-        page.classList.remove('active');
+        // 3. Re-select dependent fields
+        setTimeout(() => {
+             const courseSelect = document.getElementById('course');
+             if(courseSelect && preSelectedCourse) {
+                 courseSelect.value = preSelectedCourse;
+                 courseSelect.classList.add('is-dirty');
+                 if(courseSelect.closest('.form-group')) courseSelect.closest('.form-group').classList.add('validated');
+             }
+             
+             const semSelect = document.getElementById('semester');
+             if(semSelect && preSelectedSemester) {
+                 semSelect.value = preSelectedSemester;
+                 semSelect.classList.add('is-dirty');
+                 if(semSelect.closest('.form-group')) semSelect.closest('.form-group').classList.add('validated');
+             }
+        }, 200);
     });
-    document.querySelectorAll('.nav-tab').forEach(tab => {
-        tab.classList.remove('active');
-    });
-
-    const activePage = document.getElementById(`page${currentPage}`);
-    if (activePage) activePage.classList.add('active');
-
-    const activeTab = document.querySelector(`.nav-tab[data-page="${currentPage}"]`);
-    if (activeTab) activeTab.classList.add('active');
-
-    document.getElementById('prevBtn').style.display = currentPage > 1 ? 'inline-block' : 'none';
-    document.getElementById('nextBtn').style.display = currentPage < totalPages ? 'inline-block' : 'none';
-    document.getElementById('submitBtn').style.display = currentPage === totalPages ? 'inline-block' : 'none';
-    
-    updateProgressBar();
-}
-
-function validatePage(page) {
-    // We can add real validation here later if needed
-    return true; 
-}
-
-function navigate(direction) {
-    if (direction === 1) { // Moving forward
-        if (validatePage(currentPage) && currentPage < totalPages) {
-            showPage(currentPage + 1);
-        }
-    } else if (direction === -1) { // Moving backward
-        if (currentPage > 1) {
-            showPage(currentPage - 1);
-        }
-    }
-}
-
-function showModal(message) {
-    const modal = document.getElementById('errorModal');
-    if(modal) {
-        document.getElementById('errorMessage').textContent = message;
-        modal.style.display = 'block';
-    }
-}
-function closeModal() {
-    const modal = document.getElementById('errorModal');
-    if(modal) {
-        modal.style.display = 'none';
-    }
-}
-
-function toggleSection(sectionId, show) {
-    const el = document.getElementById(sectionId);
-    if (el) {
-        el.style.display = show ? 'block' : 'none';
-    }
-}
-
-// --- Main execution block that runs after the page is loaded ---
-document.addEventListener("DOMContentLoaded", () => {
-    
-    // --- Define elements *after* DOM is loaded ---
-    progressBarFill = document.getElementById('formProgressBar');
-    const institutionSelect = document.getElementById('institution_name');
-    const courseSelect = document.getElementById('course');
-    const yearOfStudy = document.getElementById('year_of_study');
-    const semesterSelect = document.getElementById('semester');
-    const navTabs = document.querySelectorAll('.nav-tab');
-    const uploadAreas = document.querySelectorAll(".upload-area");
-    
-    // (FIX) New elements for sports section
-    const sportsCheckboxGroup = document.getElementById('sports_checkbox_group');
-    const sportsCheckboxes = sportsCheckboxGroup ? sportsCheckboxGroup.querySelectorAll('input[type="checkbox"]') : [];
-
-    // Initial UI setup
-    showPage(currentPage); // Show page 1
-    
-    // --- College/Program Dropdown Logic ---
-    function updateCourseDropdown() {
-        const selectedCollegeId = institutionSelect.value;
-        courseSelect.innerHTML = '<option value="">-- SELECT COURSE --</option>';
-
-        if (collegePrograms[selectedCollegeId]) {
-            collegePrograms[selectedCollegeId].programs.forEach(program => {
-                const option = document.createElement('option');
-                option.value = program.id;
-                option.textContent = program.name;
-                if (program.id.toString() === preSelectedCourseId.toString()) {
-                    option.selected = true;
-                }
-                courseSelect.appendChild(option);
-            });
-        }
-    }
-    if(institutionSelect) institutionSelect.addEventListener('change', updateCourseDropdown);
-    if (preSelectedCollegeId) {
-        updateCourseDropdown();
-    }
-    
-    // --- (FIX) Tab Navigation Event Listeners ---
-    navTabs.forEach(tab => {
-        tab.addEventListener('click', (e) => {
-            const page = parseInt(e.target.dataset.page);
-            if (validatePage(currentPage)) {
-                showPage(page);
-            }
-        });
-    });
-
-    // --- (FIX) Sports Conditional Logic ---
-    function checkSportsSection() {
-        let anyChecked = false;
-        sportsCheckboxes.forEach(box => {
-            if (box.checked) {
-                anyChecked = true;
-            }
-        });
-        toggleSection('sports_section', anyChecked);
-    }
-    
-    sportsCheckboxes.forEach(box => {
-        box.addEventListener('change', checkSportsSection);
-    });
-    // Run once on load to set initial state
-    checkSportsSection();
-
-    // --- Pre-fill Other Conditional Sections ---
-    const exServicemen = document.querySelector('input[name="ex_servicemen"]:checked');
-    if (exServicemen && exServicemen.value === 'Yes') {
-        toggleSection('ex_servicemen_section', true);
-    }
-    const disabled = document.querySelector('input[name="disabled"]:checked');
-    if (disabled && disabled.value === 'Yes') {
-        toggleSection('disabled_section', true);
-    }
-    const parentVmrf = document.querySelector('input[name="parent_vmrf"]:checked');
-    if (parentVmrf && parentVmrf.value === 'Yes') {
-        toggleSection('parent_vmrf_section', true);
-    }
-
-    // --- Dynamic Upload Area Logic ---
-    function showPreview(uploadArea, file, inputName) {
-        const existingFileLink = uploadArea.querySelector(".file-link");
-        const fileHref = existingFileLink ? existingFileLink.href : '#';
-        
-        uploadArea.querySelectorAll(".file-preview, .file-link").forEach(el => el.remove());
-
-        const preview = document.createElement("div");
-        preview.className = "file-preview";
-        
-        const icon = document.createElement("i");
-        if (file.name.toLowerCase().includes('pdf')) {
-            icon.className = "fa-solid fa-file-pdf";
-        } else if (file.name.toLowerCase().match(/\.(jpg|jpeg|png|gif)$/)) {
-            icon.className = "fa-solid fa-file-image";
-        } else {
-            icon.className = "fa-solid fa-file-invoice";
-        }
-        preview.appendChild(icon);
-
-        if (file.type === 'prefilled') {
-            const link = document.createElement("a");
-            link.href = fileHref;
-            link.target = "_blank";
-            link.textContent = file.name;
-            preview.appendChild(link);
-        } else {
-            const span = document.createElement("span");
-            span.textContent = file.name;
-            preview.appendChild(span);
-        }
-
-        const removeBtn = document.createElement("button");
-        removeBtn.type = "button";
-        removeBtn.innerHTML = "&times;";
-        removeBtn.className = "file-remove-btn";
-
-        removeBtn.addEventListener("click", (e) => {
-            e.stopPropagation();
-            const fileInput = uploadArea.querySelector("input[type='file']");
-            fileInput.value = ""; 
-            preview.remove(); 
-
-            if (file.type === 'prefilled') {
-                let hiddenRemove = document.createElement("input");
-                hiddenRemove.type = "hidden";
-                hiddenRemove.name = inputName + "_clear_flag";
-                hiddenRemove.value = "1";
-                uploadArea.appendChild(hiddenRemove);
-            }
-        });
-
-        preview.appendChild(removeBtn);
-        uploadArea.appendChild(preview);
-    }
-
-    uploadAreas.forEach(uploadArea => {
-        const fileInput = uploadArea.querySelector("input[type='file']");
-        if (!fileInput) return;
-
-        const existingFileLink = uploadArea.querySelector(".file-link");
-        if (existingFileLink) {
-            showPreview(uploadArea, { name: existingFileLink.textContent, type: 'prefilled' }, fileInput.name);
-        }
-
-        uploadArea.addEventListener("click", (e) => {
-            if (!e.target.closest('.file-preview')) {
-                fileInput.click();
-            }
-        });
-        uploadArea.addEventListener("dragover", e => {
-            e.preventDefault();
-            uploadArea.classList.add("dragover");
-        });
-        uploadArea.addEventListener("dragleave", () => {
-            uploadArea.classList.remove("dragover");
-        });
-        uploadArea.addEventListener("drop", e => {
-            e.preventDefault();
-            uploadArea.classList.remove("dragover");
-            if (e.dataTransfer.files.length > 0) {
-                fileInput.files = e.dataTransfer.files;
-                showPreview(uploadArea, fileInput.files[0], fileInput.name);
-            }
-        });
-        fileInput.addEventListener("change", () => {
-            if (fileInput.files.length > 0) {
-                showPreview(uploadArea, fileInput.files[0], fileInput.name);
-            }
-        });
-    });
-    
-    // --- Semester Dropdown Logic ---
-    const updateSemesters = () => {
-        const year = parseInt(yearOfStudy.value);
-        const prefilledSemester = '<?= get_value('semester', $application) ?>';
-
-        semesterSelect.innerHTML = '<option value="">-- Select Semester --</option>';
-
-        if (year > 0) {
-            const startSem = (year - 1) * 2 + 1;
-            const endSem = year * 2;
-
-            for (let s = startSem; s <= endSem; s++) {
-                const option = document.createElement('option');
-                option.value = s;
-                option.textContent = s;
-                if (s.toString() === prefilledSemester) {
-                    option.selected = true;
-                }
-                semesterSelect.appendChild(option);
-            }
-        } else if (prefilledSemester) {
-            const option = document.createElement('option');
-            option.value = prefilledSemester;
-            option.textContent = prefilledSemester;
-            option.selected = true;
-            semesterSelect.appendChild(option);
-        }
-    };
-    if(yearOfStudy) yearOfStudy.addEventListener('change', updateSemesters);
-    updateSemesters(); // Initial run
-});
 </script>
+</body>
+</html>

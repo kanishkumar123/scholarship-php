@@ -330,7 +330,7 @@ if (isset($_POST['login'])) {
                     // The CSS now handles the 'X' animation
                     closeLogin(); // Close login panel if open
                 });
-            }
+            } 
             
             // Close mobile nav when a link is clicked
             if (siteNav) {
