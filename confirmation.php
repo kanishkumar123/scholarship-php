@@ -241,34 +241,34 @@ $family_income_formatted = format_inr($app['family_income']);
         }
 
         /* Signature Styling */
-.declaration-section {
-    margin-top: 20px;
-    border-top: 2px dashed #e0e0e0;
-    padding-top: 20px;
-}
-.declaration-text {
-    font-size: 0.9em;
-    color: #555;
-    margin-bottom: 15px;
-    font-style: italic;
-}
-.signature-box {
-    text-align: right; /* Aligns signature to the right */
-    margin-top: 10px;
-}
-.signature-img {
-    max-width: 200px;
-    max-height: 80px;
-    border-bottom: 1px solid #333;
-    padding-bottom: 5px;
-    display: inline-block;
-}
-.signature-label {
-    font-weight: bold;
-    font-size: 0.9em;
-    color: #333;
-    margin-top: 5px;
-}
+        .declaration-section {
+            margin-top: 20px;
+            border-top: 2px dashed #e0e0e0;
+            padding-top: 20px;
+        }
+        .declaration-text {
+            font-size: 0.9em;
+            color: #555;
+            margin-bottom: 15px;
+            font-style: italic;
+        }
+        .signature-box {
+            text-align: right; /* Aligns signature to the right */
+            margin-top: 10px;
+        }
+        .signature-img {
+            max-width: 200px;
+            max-height: 80px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+            display: inline-block;
+        }
+        .signature-label {
+            font-weight: bold;
+            font-size: 0.9em;
+            color: #333;
+            margin-top: 5px;
+        }
         /* --- END OF NEW STYLES --- */
     </style>
 
@@ -302,54 +302,49 @@ $family_income_formatted = format_inr($app['family_income']);
         </div>
         
         <div class="card-section">
-            <h2><i class="fas fa-user-check"></i> Personal & Contact Details</h2>
-            <div class="grid">
-                <div class="grid-item"><div class="label">Applicant Name</div><div class="value"><?= $full_name ?></div></div>
-                <div class="grid-item"><div class="label">Institution</div><div class="value"><?= htmlspecialchars($app['college_name'] ?? 'N/A') ?></div></div>
-                <div class="grid-item"><div class="label">Program</div><div class="value"><?= htmlspecialchars($app['program_name'] ?? 'N/A') ?></div></div>
-                <div class="grid-item"><div class="label">Current Year/Semester</div><div class="value">Year <?= htmlspecialchars($app['year_of_study'] ?? 'N/A') ?>, Sem <?= htmlspecialchars($app['semester'] ?? 'N/A') ?></div></div>
-                <div class="grid-item"><div class="label">Email / Mobile</div><div class="value"><?= htmlspecialchars($app['email']) ?> / <?= htmlspecialchars($app['mobile']) ?></div></div>
-                <div class="grid-item"><div class="label">DOB / Gender</div><div class="value"><?= $dob_formatted ?> / <?= htmlspecialchars($app['gender']) ?></div></div>
-                <div class="grid-item"><div class="label">Family Income (Annual)</div><div class="value"><?= $family_income_formatted ?></div></div>
-                <div class="grid-item"><div class="label">Community (Caste)</div><div class="value"><?= htmlspecialchars($app['community']) ?> (<?= htmlspecialchars($app['caste']) ?>)</div></div>
-                <div class="grid-item full-width">
-                    <div class="label">Address</div>
-                    <div class="value"><?= nl2br(htmlspecialchars($app['address'])) ?></div>
-                </div>
-            </div>
+    <h2><i class="fas fa-user-check"></i> Personal & Contact Details</h2>
+    <div class="grid">
+        <div class="grid-item"><div class="label">Applicant Name</div><div class="value"><?= $full_name ?></div></div>
+        <div class="grid-item"><div class="label">Institution</div><div class="value"><?= htmlspecialchars($app['college_name'] ?? 'N/A') ?></div></div>
+        <div class="grid-item"><div class="label">Program</div><div class="value"><?= htmlspecialchars($app['program_name'] ?? 'N/A') ?></div></div>
+        <div class="grid-item"><div class="label">Current Year/Semester</div><div class="value">Year <?= htmlspecialchars($app['year_of_study'] ?? 'N/A') ?>, Sem <?= htmlspecialchars($app['semester'] ?? 'N/A') ?></div></div>
+        
+        <div class="grid-item"><div class="label">Email</div><div class="value"><?= htmlspecialchars($app['email']) ?></div></div>
+        
+        <div class="grid-item">
+            <div class="label">Student Mobile</div>
+            <div class="value"><?= htmlspecialchars($app['mobile']) ?></div>
         </div>
+        <div class="grid-item">
+            <div class="label">Parent Mobile</div>
+            <div class="value"><?= htmlspecialchars($app['parent_mobile'] ?? 'N/A') ?></div>
+        </div>
+
+        <div class="grid-item"><div class="label">DOB / Gender</div><div class="value"><?= $dob_formatted ?> / <?= htmlspecialchars($app['gender']) ?></div></div>
+        <div class="grid-item"><div class="label">Family Income (Annual)</div><div class="value"><?= $family_income_formatted ?></div></div>
+        <div class="grid-item"><div class="label">Community (Caste)</div><div class="value"><?= htmlspecialchars($app['community']) ?> (<?= htmlspecialchars($app['caste']) ?>)</div></div>
+        <div class="grid-item full-width">
+            <div class="label">Address</div>
+            <div class="value"><?= nl2br(htmlspecialchars($app['address'])) ?></div>
+        </div>
+    </div>
+</div>
 
         <div class="card-section">
             <h2><i class="fas fa-graduation-cap"></i> Academic Scores</h2>
             <div class="grid">
-                <div class="grid-item full-width">
-                    <div class="academic-score-wrapper">
-                        <div class="score-header"><?= htmlspecialchars($app['exam_name_1']) ?></div>
-                        <div class="score-body">
-                            <div class="score-details">
-                                <strong>Year of Passing:</strong> <span><?= htmlspecialchars($app['exam_year_reg_1']) ?></span>
-                                <strong>Class:</strong> <span><?= htmlspecialchars($app['exam_class_1']) ?></span>
-                                <strong>Board:</strong> <span><?= htmlspecialchars($app['exam_board_1']) ?></span>
-                            </div>
-                            <div class="score-result">
-                                <strong><?= htmlspecialchars($app['exam_marks_1']) ?><?= strpos($app['exam_marks_1'], '.') !== false ? '%' : '' ?></strong>
-                                <span class="marks-label">Marks/Percentage</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 
                 <div class="grid-item full-width">
                     <div class="academic-score-wrapper">
-                         <div class="score-header"><?= htmlspecialchars($app['exam_name_2']) ?></div>
+                        <div class="score-header"><?= htmlspecialchars($app['exam_name']) ?></div>
                         <div class="score-body">
                             <div class="score-details">
-                                <strong>Year of Passing:</strong> <span><?= htmlspecialchars($app['exam_year_reg_2']) ?></span>
-                                <strong>Class:</strong> <span><?= htmlspecialchars($app['exam_class_2']) ?></span>
-                                <strong>Board:</strong> <span><?= htmlspecialchars($app['exam_board_2']) ?></span>
+                                <strong>Year of Passing & Reg No:</strong> <span><?= htmlspecialchars($app['exam_year_reg']) ?></span>
+                                <strong>Class/Grade:</strong> <span><?= htmlspecialchars($app['exam_class']) ?></span>
+                                <strong>Board:</strong> <span><?= htmlspecialchars($app['exam_board']) ?></span>
                             </div>
                             <div class="score-result">
-                                <strong><?= htmlspecialchars($app['exam_marks_2']) ?><?= strpos($app['exam_marks_2'], '.') !== false ? '%' : '' ?></strong>
+                                <strong><?= htmlspecialchars($app['exam_marks']) ?><?= strpos($app['exam_marks'], '.') !== false ? '%' : '' ?></strong>
                                 <span class="marks-label">Marks/Percentage</span>
                             </div>
                         </div>

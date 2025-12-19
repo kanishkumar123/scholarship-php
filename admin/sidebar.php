@@ -46,6 +46,12 @@ $admin_username = htmlspecialchars($_SESSION['admin_username'] ?? 'Admin User');
                 </a>
             </li>
             <li>
+                <a href="manage_fees.php" class="<?= ($currentPage === 'manage_fees') ? 'active' : '' ?>">
+                    <i class="fa-solid fa-indian-rupee-sign"></i>
+                    <span>Manage Fees</span>
+                </a>
+            </li>
+            <li>
                 <a href="college.php" class="<?= ($currentPage === 'colleges') ? 'active' : '' ?>">
                     <i class="fa-solid fa-school"></i>
                     <span>Manage Colleges</span>

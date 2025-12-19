@@ -1,138 +1,143 @@
 <?php
 session_start();
-include("../config.php"); 
 
-// 1. Security
-if (!isset($_SESSION['admin_id'])) { die("Access Denied"); }
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') { die("Invalid Request"); }
+// FIX: Go up one level to find config.php
+include("../config.php");
 
-// 2. Data Setup
-$app_id = intval($_POST['app_id']);
-if ($app_id <= 0) die("Invalid Application ID");
-
-// 3. Update Text Data
-$sql = "UPDATE applications SET 
-        institution_name='".mysqli_real_escape_string($conn, $_POST['institution_name'])."', 
-        course='".mysqli_real_escape_string($conn, $_POST['course'])."', 
-        year_of_study='".intval($_POST['year_of_study'])."', 
-        semester='".intval($_POST['semester'])."',
-        gender='".mysqli_real_escape_string($conn, $_POST['gender'])."', 
-        father_name='".mysqli_real_escape_string($conn, $_POST['father_name'])."', 
-        mother_name='".mysqli_real_escape_string($conn, $_POST['mother_name'])."', 
-        community='".mysqli_real_escape_string($conn, $_POST['community'])."', 
-        caste='".mysqli_real_escape_string($conn, $_POST['caste'])."',
-        family_income='".mysqli_real_escape_string($conn, str_replace(',', '', $_POST['family_income']))."', 
-        address='".mysqli_real_escape_string($conn, $_POST['address'])."', 
-        mobile='".mysqli_real_escape_string($conn, $_POST['mobile'])."', 
-        email='".mysqli_real_escape_string($conn, $_POST['email'])."',
-        exam_name_1='".mysqli_real_escape_string($conn, $_POST['exam_name_1'])."', 
-        exam_year_reg_1='".mysqli_real_escape_string($conn, $_POST['exam_year_reg_1'])."', 
-        exam_board_1='".mysqli_real_escape_string($conn, $_POST['exam_board_1'])."', 
-        exam_class_1='".mysqli_real_escape_string($conn, $_POST['exam_class_1'])."', 
-        exam_marks_1='".mysqli_real_escape_string($conn, $_POST['exam_marks_1'])."',
-        exam_name_2='".mysqli_real_escape_string($conn, $_POST['exam_name_2'])."', 
-        exam_year_reg_2='".mysqli_real_escape_string($conn, $_POST['exam_year_reg_2'])."', 
-        exam_board_2='".mysqli_real_escape_string($conn, $_POST['exam_board_2'])."', 
-        exam_class_2='".mysqli_real_escape_string($conn, $_POST['exam_class_2'])."', 
-        exam_marks_2='".mysqli_real_escape_string($conn, $_POST['exam_marks_2'])."',
-        lateral_exam_name='".mysqli_real_escape_string($conn, $_POST['lateral_exam_name'])."', 
-        lateral_exam_year_reg='".mysqli_real_escape_string($conn, $_POST['lateral_exam_year_reg'])."', 
-        lateral_percentage='".mysqli_real_escape_string($conn, $_POST['lateral_percentage'])."',
-        sports_level='".(isset($_POST['sports_level']) ? mysqli_real_escape_string($conn, implode(",", $_POST['sports_level'])) : "")."' , 
-        ex_servicemen='".($_POST['ex_servicemen'] ?? 'No')."', 
-        disabled='".($_POST['disabled'] ?? 'No')."', 
-        disability_category='".mysqli_real_escape_string($conn, $_POST['disability_category'])."',
-        parent_vmrf='".($_POST['parent_vmrf'] ?? 'No')."', 
-        parent_vmrf_details='".mysqli_real_escape_string($conn, $_POST['parent_vmrf_details'])."'
-        WHERE id='$app_id'";
-
-if (!mysqli_query($conn, $sql)) {
-    die("Database Error: " . mysqli_error($conn));
+// 1. ADMIN CHECK
+if (!isset($_SESSION['admin_id'])) {
+    die("Access Denied.");
 }
 
-// 4. Signature Handler
-$signature_updated = $_POST['signature_updated'] ?? '0';
-if ($signature_updated === '1') {
-    // Physical path for saving (Admin is in /admin, uploads is in root)
-    $upload_dir_server = "../uploads/signatures/"; 
-    // DB path (relative to root)
-    $upload_dir_db = "uploads/signatures/"; 
-    
-    if (!is_dir($upload_dir_server)) mkdir($upload_dir_server, 0777, true);
-
-    $sig_path = '';
-    $sig_type = $_POST['signature_type'];
-
-    if (($sig_type === 'draw' || $sig_type === 'type') && !empty($_POST['signature_data'])) {
-        $data_uri = $_POST['signature_data'];
-        // If it's a base64 image string
-        if (strpos($data_uri, 'data:image') === 0) {
-            $data_uri = substr($data_uri, strpos($data_uri, ',') + 1);
-            $decoded = base64_decode($data_uri);
-            $filename = "sig_" . $app_id . "_" . time() . ".png";
-            if (file_put_contents($upload_dir_server . $filename, $decoded)) {
-                $sig_path = $upload_dir_db . $filename;
-            }
-        } 
-        // If it's just text (fallback for 'type' without canvas conversion), we skip or handle differently.
-        // Assuming the JS converts type to image on canvas before submit.
-    } 
-    elseif ($sig_type === 'upload' && isset($_FILES['signature_file']) && $_FILES['signature_file']['error'] === UPLOAD_ERR_OK) {
-        $ext = pathinfo($_FILES['signature_file']['name'], PATHINFO_EXTENSION);
-        $filename = "sig_" . $app_id . "_" . time() . "." . $ext;
-        if (move_uploaded_file($_FILES['signature_file']['tmp_name'], $upload_dir_server . $filename)) {
-            $sig_path = $upload_dir_db . $filename;
-        }
-    }
-
-    if ($sig_path) {
-        mysqli_query($conn, "UPDATE applications SET signature_path = '$sig_path' WHERE id = '$app_id'");
-    }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['application_id'])) {
+    die("Invalid Request.");
 }
 
-// 5. File Upload Handler (Documents)
-function handleFileUpload($fileInputName, $dbFileType, $appId, $conn) {
-    $uploadDirServer = "../uploads/"; // Physical: Go up one folder from admin
-    $uploadDirDB = "uploads/";        // DB: Store relative to root
-    
-    if (!is_dir($uploadDirServer)) mkdir($uploadDirServer, 0777, true);
+$app_id = intval($_POST['application_id']);
 
-    // Handle New Upload
-    if (isset($_FILES[$fileInputName]) && $_FILES[$fileInputName]['error'] === UPLOAD_ERR_OK) {
-        $ext = strtolower(pathinfo($_FILES[$fileInputName]['name'], PATHINFO_EXTENSION));
-        $allowed = ['jpg', 'jpeg', 'png', 'pdf'];
+// 2. COLLECT DATA (Sanitize)
+$name = mysqli_real_escape_string($conn, $_POST['name']);
+$institution_name = mysqli_real_escape_string($conn, $_POST['institution_name']);
+$course = mysqli_real_escape_string($conn, $_POST['course']);
+$year_of_study = mysqli_real_escape_string($conn, $_POST['year_of_study']);
+$semester = mysqli_real_escape_string($conn, $_POST['semester']);
+$gender = mysqli_real_escape_string($conn, $_POST['gender']);
+$father_name = mysqli_real_escape_string($conn, $_POST['father_name']);
+$mother_name = mysqli_real_escape_string($conn, $_POST['mother_name']);
+$community = mysqli_real_escape_string($conn, $_POST['community']);
+$caste = mysqli_real_escape_string($conn, $_POST['caste']);
+$family_income = str_replace(',', '', $_POST['family_income']); 
+$address = mysqli_real_escape_string($conn, $_POST['address']);
+$mobile = mysqli_real_escape_string($conn, $_POST['mobile']);
+$email = mysqli_real_escape_string($conn, $_POST['email']);
+
+// Exams
+$exam_name = mysqli_real_escape_string($conn, $_POST['exam_name']);
+$exam_year_reg = mysqli_real_escape_string($conn, $_POST['exam_year_reg']);
+$exam_board = mysqli_real_escape_string($conn, $_POST['exam_board']);
+$exam_class = mysqli_real_escape_string($conn, $_POST['exam_class']);
+$exam_marks = mysqli_real_escape_string($conn, $_POST['exam_marks']);
+
+// Lateral
+$lateral_exam_name = mysqli_real_escape_string($conn, $_POST['lateral_exam_name']);
+$lateral_exam_year_reg = mysqli_real_escape_string($conn, $_POST['lateral_exam_year_reg']);
+$lateral_percentage = mysqli_real_escape_string($conn, $_POST['lateral_percentage']);
+
+// Special Claims
+$sports_level = isset($_POST['sports_level']) ? implode(", ", $_POST['sports_level']) : "";
+$ex_servicemen = $_POST['ex_servicemen'] ?? 'No';
+$disabled = $_POST['disabled'] ?? 'No';
+$disability_category = mysqli_real_escape_string($conn, $_POST['disability_category'] ?? '');
+$parent_vmrf = $_POST['parent_vmrf'] ?? 'No';
+$parent_vmrf_details = mysqli_real_escape_string($conn, $_POST['parent_vmrf_details'] ?? '');
+
+// 3. UPDATE QUERY
+$sql_update = "UPDATE applications SET 
+    name = '$name',
+    institution_name = '$institution_name',
+    course = '$course',
+    year_of_study = '$year_of_study',
+    semester = '$semester',
+    gender = '$gender',
+    father_name = '$father_name',
+    mother_name = '$mother_name',
+    community = '$community',
+    caste = '$caste',
+    family_income = '$family_income',
+    address = '$address',
+    mobile = '$mobile',
+    email = '$email',
+    exam_name = '$exam_name',
+    exam_year_reg = '$exam_year_reg',
+    exam_board = '$exam_board',
+    exam_class = '$exam_class',
+    exam_marks = '$exam_marks',
+    lateral_exam_name = '$lateral_exam_name',
+    lateral_exam_year_reg = '$lateral_exam_year_reg',
+    lateral_percentage = '$lateral_percentage',
+    sports_level = '$sports_level',
+    ex_servicemen = '$ex_servicemen',
+    disabled = '$disabled',
+    disability_category = '$disability_category',
+    parent_vmrf = '$parent_vmrf',
+    parent_vmrf_details = '$parent_vmrf_details'
+    WHERE id = '$app_id'";
+
+if (!mysqli_query($conn, $sql_update)) {
+    die("Error updating record: " . mysqli_error($conn));
+}
+
+// 4. HANDLE FILE UPLOADS 
+function handleAdminFileUpload($field_name, $file_type, $app_id, $conn) {
+    if (isset($_FILES[$field_name]) && $_FILES[$field_name]['error'] === UPLOAD_ERR_OK) {
         
-        if (in_array($ext, $allowed)) {
-            $newFileName = $dbFileType . "_" . $appId . "_" . time() . "." . $ext;
+        // FIX: Save files to the main 'uploads' folder (one level up), not 'admin/uploads'
+        $physical_dir = "../uploads/"; 
+        if (!is_dir($physical_dir)) mkdir($physical_dir, 0777, true);
+
+        $allowed_mime = ['application/pdf', 'image/jpeg', 'image/png'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mime_type = finfo_file($finfo, $_FILES[$field_name]['tmp_name']);
+        finfo_close($finfo);
+
+        if (in_array($mime_type, $allowed_mime)) {
+            $ext = pathinfo($_FILES[$field_name]['name'], PATHINFO_EXTENSION);
+            // Filename format: type_appid_timestamp_ADMIN.ext
+            $filename = $file_type . "_" . $app_id . "_" . time() . "_ADM." . $ext;
             
-            if (move_uploaded_file($_FILES[$fileInputName]['tmp_name'], $uploadDirServer . $newFileName)) {
-                // Delete old DB entry
-                mysqli_query($conn, "DELETE FROM application_files WHERE application_id='$appId' AND file_type='$dbFileType'");
-                // Insert new DB entry
-                $dbPath = $uploadDirDB . $newFileName;
-                $stmt = $conn->prepare("INSERT INTO application_files (application_id, file_type, file_path) VALUES (?, ?, ?)");
-                $stmt->bind_param("iss", $appId, $dbFileType, $dbPath);
-                $stmt->execute();
+            $target_path_physical = $physical_dir . $filename; // For moving file
+            $target_path_db = "uploads/" . $filename; // For Database (Relative to Root)
+
+            if (move_uploaded_file($_FILES[$field_name]['tmp_name'], $target_path_physical)) {
+                
+                // Check if record exists
+                $check = mysqli_query($conn, "SELECT id FROM application_files WHERE application_id='$app_id' AND file_type='$file_type'");
+                
+                if (mysqli_num_rows($check) > 0) {
+                    // Update existing path
+                    $stmt = $conn->prepare("UPDATE application_files SET file_path=? WHERE application_id=? AND file_type=?");
+                    $stmt->bind_param("sis", $target_path_db, $app_id, $file_type);
+                    $stmt->execute();
+                    $stmt->close();
+                } else {
+                    // Insert new record
+                    $stmt = $conn->prepare("INSERT INTO application_files (application_id, file_type, file_path) VALUES (?, ?, ?)");
+                    $stmt->bind_param("iss", $app_id, $file_type, $target_path_db);
+                    $stmt->execute();
+                    $stmt->close();
+                }
             }
         }
     }
-    // Handle Delete Request
-    elseif (isset($_POST[$fileInputName . '_clear_flag']) && $_POST[$fileInputName . '_clear_flag'] == '1') {
-        $q = mysqli_query($conn, "SELECT file_path FROM application_files WHERE application_id='$appId' AND file_type='$dbFileType'");
-        if ($row = mysqli_fetch_assoc($q)) {
-            $fileToDelete = "../" . $row['file_path'];
-            if (file_exists($fileToDelete)) unlink($fileToDelete);
-        }
-        mysqli_query($conn, "DELETE FROM application_files WHERE application_id='$appId' AND file_type='$dbFileType'");
-    }
 }
 
-handleFileUpload('sports_proof', 'sports', $app_id, $conn);
-handleFileUpload('ex_servicemen_proof', 'ex_servicemen', $app_id, $conn);
-handleFileUpload('disability_proof', 'disabled', $app_id, $conn);
-handleFileUpload('parent_vmrf_proof', 'parent_vmrf', $app_id, $conn);
+// Process Files
+handleAdminFileUpload('sports_proof', 'sports', $app_id, $conn);
+handleAdminFileUpload('ex_servicemen_proof', 'ex_servicemen', $app_id, $conn);
+handleAdminFileUpload('disability_proof', 'disabled', $app_id, $conn);
+handleAdminFileUpload('parent_vmrf_proof', 'parent_vmrf', $app_id, $conn);
 
-$_SESSION['message'] = ['type' => 'success', 'text' => "Application updated successfully!"];
-header("Location: edit_application.php?id=$app_id");
+// 5. REDIRECT BACK
+echo "<script>alert('Application updated successfully!'); window.location.href='edit_application.php?id=$app_id';</script>";
 exit;
 ?>

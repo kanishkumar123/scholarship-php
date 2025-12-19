@@ -394,6 +394,6 @@ if (isset($_POST['login'])) {
 
         });
     </script>
-    <script src="https://astra.wati.io/widget/astra.js" id="6f3cb247-104a-4ec5-853a-b757be841a0e" data-mode="widget" defer></script>
+    
 </body>
 </html>

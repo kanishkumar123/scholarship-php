@@ -133,29 +133,35 @@ if ($existingApp) {
                 <h3 class="page-header"><i class="fas fa-user-check"></i> Personal & Academic Details</h3>
 
                 <div class="form-group">
-                    <select name="institution_name" id="institution_name" data-validate-type="select" data-error-message="Please select your institution." required>
-                        <option value="">-- SELECT INSTITUTION --</option>
-                        <?php foreach ($college_programs as $college_id => $data): 
-                            // --- FIX: Compare stored Name with Dropdown Name ---
-                            $is_selected = '';
-                            if (isset($student['institution_name']) && 
-                                trim($student['institution_name']) === trim($data['name'])) {
-                                $is_selected = 'selected';
-                            }
-                        ?>
-                            <option value="<?= htmlspecialchars($college_id) ?>" <?= $is_selected ?>>
-                                <?= htmlspecialchars($data['name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                    <label for="institution_name">Institution Name:</label>
-                    <div class="input-bg"></div>
-                    <div class="validation-icon">
-                        <i class="fas fa-check tick-mark"></i>
-                        <i class="fas fa-times cross-mark" title=""></i>
-                    </div>
-                    <span class="tooltip-text">Please select your institution.</span>
-                </div>
+    <select name="institution_name" id="institution_name" data-validate-type="select" data-error-message="Please select your institution." required>
+        <option value="">-- SELECT INSTITUTION --</option>
+        <?php foreach ($college_programs as $college_id => $data): 
+            $is_selected = '';
+            
+            // Get the value stored by Admin in scholarship_students table
+            $uploaded_college_name = $student['institution_name'] ?? '';
+
+            // Get the actual name of the college from the database list
+            $actual_college_name = $data['name'];
+
+            // Check if Admin uploaded a name AND it matches this option (Case-Insensitive)
+            if (!empty($uploaded_college_name) && strcasecmp(trim($uploaded_college_name), trim($actual_college_name)) == 0) {
+                $is_selected = 'selected';
+            }
+        ?>
+            <option value="<?= htmlspecialchars($college_id) ?>" <?= $is_selected ?>>
+                <?= htmlspecialchars($data['name']) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+    <label for="institution_name">Institution Name:</label>
+    <div class="input-bg"></div>
+    <div class="validation-icon">
+        <i class="fas fa-check tick-mark"></i>
+        <i class="fas fa-times cross-mark" title=""></i>
+    </div>
+    <span class="tooltip-text">Please select your institution.</span>
+</div>
 
                 <div class="form-group">
                     <select name="course" id="course" data-validate-type="select" data-error-message="Please select your course." required>
@@ -189,7 +195,7 @@ if ($existingApp) {
                         </div>
                         <span class="tooltip-text">Please select your year of study.</span>
                     </div>
-                    
+
                     <div class="form-group">
                         <select name="semester" id="semester" data-validate-type="select" data-error-message="Please select your current semester.">
                             <option value="">-</option>
@@ -205,20 +211,17 @@ if ($existingApp) {
                 </div>
 
                 <?php
-                // ⭐️ FIX: Added a 5th item (true/false) to mark as required
-                $fields = [
-                    // Field Name, Label, Type, Error Message, Is Required?
-                    ['gender','Gender',['Male','Female','Other'], "This field is required.", true],
-                    ['father_name','Father\'s Name', 'text_strict', 'Name must contain only letters.', true],
-                    ['mother_name','Mother\'s Name', 'text_strict', 'Name must contain only letters.', true], 
-                    ['community','Community',['OC','BC','OBC','MBC','DNC','SC','ST'], "This field is required.", true],
-                    ['caste','Caste', 'text_strict', 'Caste must contain only letters.', false], // <-- FIX: Set to false
-                    ['family_income','Annual Family Income (₹)', 'number_strict', 'Enter only numbers (no symbols or spaces).', true],
-                    ['address','Permanent Address', 'textarea', "This field is required.", true],
-                    // ['phone_std','Phone Number', 'tel_10', 'Enter exactly 10 digits (no country code).', true], // <-- FIX: Removed
-                    ['mobile','Mobile Number', 'tel_10', 'Enter exactly 10 digits (no country code).', true],
-                    ['email','Email ID', 'email', 'Enter a valid email address (e.g., user@domain.com).', true]
-                ];
+    $fields = [
+        ['gender','Gender',['Male','Female','Other'], "This field is required.", true],
+        ['father_name','Father\'s Name', 'text_strict', 'Name must contain only letters.', false],
+        ['mother_name','Mother\'s Name', 'text_strict', 'Name must contain only letters.', false], 
+        ['community','Community',['OC','BC','OBC','MBC','DNC','SC','ST'], "This field is required.", true],
+        ['caste','Caste', 'text_strict', 'Caste must contain only letters.', false],
+        ['family_income','Annual Family Income (₹)', 'number_strict', 'Enter only numbers (no symbols or spaces).', false], 
+        ['mobile','Mobile Number', 'tel_10', 'Enter exactly 10 digits.', true],
+        ['parent_mobile','Parent Mobile Number', 'tel_10', 'Enter exactly 10 digits.', false],
+        ['email','Email ID', 'email', 'Enter a valid email.', true]
+    ];
 
                 foreach ($fields as $f):
                     $name = $f[0];
@@ -234,32 +237,29 @@ if ($existingApp) {
                     echo '<div class="form-group">';
                     
                     if ($type === 'textarea') {
-                        $attributes = "name='{$name}' id='{$name}' data-validate-type='{$attribute_type_value}' data-error-message='{$error_msg}' placeholder='' $required_attr autocomplete='off'";
-                        echo "<textarea {$attributes}></textarea>";
-                    } elseif (is_array($type)) { 
-                        $attributes = "name='{$name}' id='{$name}' data-validate-type='{$attribute_type_value}' data-error-message='{$error_msg}' $required_attr";
-                        echo "<select {$attributes}>";
-                        echo "<option value=''>-- Select --</option>";
-                        foreach($type as $opt) echo "<option value='".htmlspecialchars($opt)."'>".htmlspecialchars($opt)."</option>";
-                        echo "</select>";
-                    } else { 
-                        $input_html_type = ($type === 'email' ? 'email' : 'text');
-                        if ($type === 'number_strict' || $type === 'tel_10') $input_html_type = 'text';
-                        $attributes = "name='{$name}' id='{$name}' data-validate-type='{$attribute_type_value}' data-error-message='{$error_msg}' placeholder='' $required_attr autocomplete='off'"; 
-                        echo "<input type='{$input_html_type}' {$attributes}>";
-                    }
+            $attributes = "name='{$name}' id='{$name}' data-validate-type='{$attribute_type_value}' data-error-message='{$error_msg}' placeholder='' $required_attr autocomplete='off'";
+            echo "<textarea {$attributes}></textarea>";
+        } elseif (is_array($type)) { 
+            $attributes = "name='{$name}' id='{$name}' data-validate-type='{$attribute_type_value}' data-error-message='{$error_msg}' $required_attr";
+            echo "<select {$attributes}>";
+            echo "<option value=''>-- Select --</option>";
+            foreach($type as $opt) echo "<option value='".htmlspecialchars($opt)."'>".htmlspecialchars($opt)."</option>";
+            echo "</select>";
+        } else { 
+            $input_html_type = ($type === 'email' ? 'email' : 'text');
+            if ($type === 'number_strict' || $type === 'tel_10') $input_html_type = 'text';
+            $attributes = "name='{$name}' id='{$name}' data-validate-type='{$attribute_type_value}' data-error-message='{$error_msg}' placeholder='' $required_attr autocomplete='off'"; 
+            echo "<input type='{$input_html_type}' {$attributes}>";
+        }
 
-                    echo "<label for='{$name}'>{$label}</label>";
-                    echo '<div class="input-bg"></div>';
-                    echo '<div class="validation-icon">';
-                    echo '<i class="fas fa-check tick-mark"></i>';
-                    echo '<i class="fas fa-times cross-mark" title=""></i>';
-                    echo '</div>';
-                    echo '<span class="tooltip-text">'.$error_msg.'</span>';
-                    echo '</div>';
-                endforeach;
-                ?>
-            </div>
+        echo "<label for='{$name}'>{$label}</label>";
+        echo '<div class="input-bg"></div>';
+        echo '<div class="validation-icon"><i class="fas fa-check tick-mark"></i><i class="fas fa-times cross-mark"></i></div>';
+        echo '<span class="tooltip-text">'.$error_msg.'</span>';
+        echo '</div>';
+    endforeach;
+    ?>
+</div>
             
             <div id="page2" class="page">
                 <h3 class="page-header"><i class="fas fa-graduation-cap"></i> Educational Qualification (Optional)</h3>
@@ -277,15 +277,23 @@ if ($existingApp) {
                         </tr>
                         </thead>
                         <tbody>
-                        <?php for($i=1;$i<=2;$i++): ?>
-                        <tr>
-                            <td data-label="Examination"><input type="text" name="exam_name_<?= $i ?>" id="exam_name_<?= $i ?>"></td>
-                            <td data-label="Year & Reg. No."><input type="text" name="exam_year_reg_<?= $i ?>" id="exam_year_reg_<?= $i ?>"></td>
-                            <td data-label="Board / Univ."><input type="text" name="exam_board_<?= $i ?>" id="exam_board_<?= $i ?>"></td>
-                            <td data-label="Class / Grade"><input type="text" name="exam_class_<?= $i ?>" id="exam_class_<?= $i ?>"></td>
-                            <td data-label="Marks (%)"><input type="text" name="exam_marks_<?= $i ?>" id="exam_marks_<?= $i ?>"></td>
-                        </tr>
-                        <?php endfor; ?>
+                            <tr>
+                                <td data-label="Examination">
+                                    <input type="text" name="exam_name" id="exam_name" placeholder="e.g. HSC / CBSE">
+                                </td>
+                                <td data-label="Year & Reg. No.">
+                                    <input type="text" name="exam_year_reg" id="exam_year_reg" placeholder="YYYY & Reg No">
+                                </td>
+                                <td data-label="Board / Univ.">
+                                    <input type="text" name="exam_board" id="exam_board" placeholder="Board Name">
+                                </td>
+                                <td data-label="Class / Grade">
+                                    <input type="text" name="exam_class" id="exam_class" placeholder="Class/Grade">
+                                </td>
+                                <td data-label="Marks (%)">
+                                    <input type="text" name="exam_marks" id="exam_marks" placeholder="Percentage">
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -475,6 +483,30 @@ document.addEventListener("DOMContentLoaded", () => {
                 institutionSelect.dispatchEvent(event);
             }, 100);
         }
+    }
+});
+</script>
+<script>
+// Format Indian Currency Live
+document.addEventListener("DOMContentLoaded", function() {
+    const incomeInput = document.querySelector("input[name='family_income']");
+    
+    if (incomeInput) {
+        incomeInput.addEventListener("input", function(e) {
+            // 1. Remove existing commas and non-numbers
+            let value = e.target.value.replace(/[^0-9]/g, '');
+            
+            // 2. Format logic
+            if (value.length > 0) {
+                let lastThree = value.substring(value.length - 3);
+                let otherNumbers = value.substring(0, value.length - 3);
+                if (otherNumbers != '')
+                    lastThree = ',' + lastThree;
+                let res = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
+                
+                e.target.value = res;
+            }
+        });
     }
 });
 </script>

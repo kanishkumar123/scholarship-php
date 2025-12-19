@@ -61,21 +61,16 @@ $community             = $_POST['community'] ?? '';
 $caste                 = $_POST['caste'] ?? '';
 // FIX: Clean the income
 $family_income         = str_replace(',', '', $_POST['family_income'] ?? '0');
-$address               = $_POST['address'] ?? '';
-$phone_std             = $_POST['phone_std'] ?? '';
-$mobile                = $_POST['mobile'] ?? '';
+$address       = $_POST['address'] ?? '';
+$parent_mobile = $_POST['parent_mobile'] ?? ''; // <--- NEW
+$mobile        = $_POST['mobile'] ?? '';
 $email                 = $_POST['email'] ?? '';
 
-$exam_name_1           = $_POST['exam_name_1'] ?? '';
-$exam_year_reg_1       = $_POST['exam_year_reg_1'] ?? '';
-$exam_board_1          = $_POST['exam_board_1'] ?? '';
-$exam_class_1          = $_POST['exam_class_1'] ?? '';
-$exam_marks_1          = $_POST['exam_marks_1'] ?? '';
-$exam_name_2           = $_POST['exam_name_2'] ?? '';
-$exam_year_reg_2       = $_POST['exam_year_reg_2'] ?? '';
-$exam_board_2          = $_POST['exam_board_2'] ?? '';
-$exam_class_2          = $_POST['exam_class_2'] ?? '';
-$exam_marks_2          = $_POST['exam_marks_2'] ?? '';
+$exam_name = $_POST['exam_name'];
+$exam_year_reg = $_POST['exam_year_reg'];
+$exam_board = $_POST['exam_board'];
+$exam_class = $_POST['exam_class'];
+$exam_marks = $_POST['exam_marks'];
 
 $lateral_exam_name     = $_POST['lateral_exam_name'] ?? '';
 $lateral_exam_year_reg = $_POST['lateral_exam_year_reg'] ?? '';
@@ -119,17 +114,17 @@ elseif ($signature_type === 'upload' && isset($_FILES['signature_file']) && $_FI
 }
 
 // --- 6. INSERT INTO applications TABLE ---
-// Note: I added `signature_path` to the columns
+// CORRECTION: Ensure the number of columns (35) matches the number of '?' (35) and 's' (35)
+
 $sql_insert = "INSERT INTO applications (
     scholarship_id, student_id, academic_year, application_no, dob, name, family_income,
     institution_name, course, year_of_study, semester, gender, father_name, mother_name,
-    community, caste, address, phone_std, mobile, email,
-    exam_name_1, exam_year_reg_1, exam_board_1, exam_class_1, exam_marks_1,
-    exam_name_2, exam_year_reg_2, exam_board_2, exam_class_2, exam_marks_2,
+    community, caste, address, parent_mobile, mobile, email,
+    exam_name, exam_year_reg, exam_board, exam_class, exam_marks,
     lateral_exam_name, lateral_exam_year_reg, lateral_percentage,
     sports_level, ex_servicemen, disabled, disability_category,
     parent_vmrf, parent_vmrf_details, signature_path
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 $stmt_insert = $conn->prepare($sql_insert);
 
@@ -137,12 +132,12 @@ if (!$stmt_insert) {
     die("SQL Prepare Error: " . $conn->error);
 }
 
-$stmt_insert->bind_param("ssssssssssssssssssssssssssssssssssssssss",
+// CORRECTION: The type string now has exactly 35 's' characters
+$stmt_insert->bind_param("sssssssssssssssssssssssssssssssssss",
     $scholarship_id, $student_id, $academic_year, $application_no, $dob, $name, $family_income,
     $institution_name, $course, $year_of_study, $semester, $gender, $father_name, $mother_name,
-    $community, $caste, $address, $phone_std, $mobile, $email,
-    $exam_name_1, $exam_year_reg_1, $exam_board_1, $exam_class_1, $exam_marks_1,
-    $exam_name_2, $exam_year_reg_2, $exam_board_2, $exam_class_2, $exam_marks_2,
+    $community, $caste, $address, $parent_mobile, $mobile, $email,
+    $exam_name, $exam_year_reg, $exam_board, $exam_class, $exam_marks,
     $lateral_exam_name, $lateral_exam_year_reg, $lateral_percentage,
     $sports_level, $ex_servicemen, $disabled, $disability_category,
     $parent_vmrf, $parent_vmrf_details, $sig_path
